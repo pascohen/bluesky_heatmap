@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rythme de publication Bluesky</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f4ef; --surface: #ffffff; --ink: #1f1a17; --muted: #6b625b; --line: #e3ddd5;
+    --c0: #eceae6; --c1: #c2410c;
+    color-scheme: light;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161311; --surface: #201c19; --ink: #f1ebe4; --muted: #a89d93; --line: #352f2a;
+      --c0: #2a2522; --c1: #ea580c;
+      color-scheme: dark;
+    }
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); line-height: 1.15; margin: 0 0 .4rem; }
+  h2 { font-size: 1.35rem; margin: 2.75rem 0 .3rem; }
+  .intro, .sub { color: var(--muted); max-width: 62ch; margin: 0 0 1.5rem; }
+  .sub { margin-bottom: 1rem; }
+  form, .controls { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-bottom: 1.25rem; }
+  label { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; color: var(--muted); }
+  label.check { flex-direction: row; align-items: center; gap: .45rem; padding-bottom: .6rem; color: var(--ink); }
+  input, select, button { font: inherit; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; padding: .55rem .75rem; }
+  input[type=text] { min-width: 15rem; }
+  input[type=date] { min-width: 10.5rem; }
+  input[type=checkbox] { width: 1.1rem; height: 1.1rem; padding: 0; margin: 0; accent-color: var(--c1); }
+  button { background: var(--c1); border-color: var(--c1); color: #fff; font-weight: 700; cursor: pointer; }
+  button.ghost { background: var(--surface); border-color: var(--line); color: var(--ink); font-weight: 400; }
+  button:disabled { opacity: .6; cursor: wait; }
+  :focus-visible { outline: 3px solid var(--c1); outline-offset: 2px; }
+  #status { color: var(--muted); min-height: 1.5em; margin: 0 0 1rem; }
+  #status.err { color: #c81e1e; }
+  .who { display: flex; gap: .9rem; align-items: center; margin-bottom: 1rem; }
+  .who img { width: 52px; height: 52px; border-radius: 50%; }
+  .who strong { display: block; font-size: 1.15rem; }
+  .who span { color: var(--muted); font-size: .9rem; }
+  .facts { display: flex; flex-wrap: wrap; gap: 2rem; margin: 0 0 1.5rem; }
+  .facts div { font-size: .9rem; color: var(--muted); }
+  .facts b { display: block; font-size: 1.5rem; color: var(--ink); }
+  .panel { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 1rem; }
+  table { border-collapse: separate; border-spacing: 3px; font-size: .78rem; }
+  th { color: var(--muted); font-weight: 400; padding: 0 .3rem; white-space: nowrap; }
+  th.day { text-align: right; padding-right: .6rem; font-size: .85rem; }
+  td.cell { width: 34px; height: 34px; min-width: 34px; border-radius: 5px; text-align: center;
+    font-variant-numeric: tabular-nums; transition: background-color .15s; }
+  td.cell.na { background: repeating-linear-gradient(45deg, transparent 0 5px, var(--line) 5px 6px); }
+  td.tot { padding-left: .6rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.today th.day { color: var(--ink); font-weight: 700; }
+  tr.today td.cell { box-shadow: inset 0 0 0 2px var(--ink); }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: 1rem; color: var(--muted); font-size: .85rem; }
+  .legend .bar { width: 160px; height: 10px; border-radius: 5px;
+    background: linear-gradient(90deg, #ffffb2, #fecc5c, #fd8d3c, #f03b20, #bd0026); }
+  .legend .hatch { width: 18px; height: 12px; border-radius: 3px;
+    background: repeating-linear-gradient(45deg, transparent 0 5px, var(--line) 5px 6px); border: 1px solid var(--line); }
+  .note { color: var(--muted); font-size: .85rem; margin-top: 1rem; max-width: 70ch; }
+  .date { font-size: 1.6rem; font-weight: 700; margin: 0 0 .2rem; font-variant-numeric: tabular-nums; }
+  .datesub { color: var(--muted); margin: 0 0 1rem; font-size: .95rem; }
+  .datesub .warn { color: var(--c1); }
+  .sliderrow { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+  #slider { width: min(100%, 520px); accent-color: var(--c1); padding: 0; border: 0; background: none; }
+  #frame { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .play { min-width: 7.5rem; }
+  .rangebox { border: 1px solid var(--line); border-radius: 12px; padding: .75rem 1rem 1rem; margin-bottom: 1.25rem; }
+  .rangebox legend { padding: 0 .4rem; color: var(--muted); font-size: .9rem; }
+  .rangebox .controls { margin: 0; }
+  .timeline { display: flex; align-items: flex-end; gap: 1px; height: 70px; margin-top: 1.25rem;
+    cursor: crosshair; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .timeline div { flex: 1 1 0; min-width: 0; background: var(--line); border-radius: 2px 2px 0 0; pointer-events: none; }
+  .timeline div.out { opacity: .3; }
+  .timeline div.win { background: #fd8d3c; }
+  .timeline div.cur { background: #bd0026; }
+  .timeline div.sel { background: var(--c1); opacity: .55; }
+  .tl-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; margin-top: .3rem; }
+  .tl-help { color: var(--muted); font-size: .8rem; margin: .4rem 0 0; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { td.cell { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>À quelle heure publie-t-il&nbsp;?</h1>
+  <p class="intro">Nombre moyen de posts Bluesky par jour de la semaine et par heure, en heure de Paris. Les données viennent de l’API publique de Bluesky&nbsp;; aucun compte n’est nécessaire.</p>
+
+  <form id="f">
+    <label>Compte <input type="text" id="handle" value="" placeholder="exemple.bsky.social" autocomplete="off" spellcheck="false"></label>
+    <label>Période
+      <select id="days">
+        <option value="30">30 derniers jours</option>
+        <option value="90" selected>90 derniers jours</option>
+        <option value="180">6 derniers mois</option>
+        <option value="365">12 derniers mois</option>
+        <option value="custom">Dates personnalisées…</option>
+      </select>
+    </label>
+    <label id="fstartL" hidden>Du <input type="date" id="fstart"></label>
+    <label id="fendL" hidden>Au <input type="date" id="fend"></label>
+    <label>Inclure
+      <select id="replies">
+        <option value="posts_with_replies" selected>Posts et réponses</option>
+        <option value="posts_no_replies">Posts seulement</option>
+      </select>
+    </label>
+    <button id="go" type="submit">Analyser</button>
+  </form>
+
+  <p id="status" role="status"></p>
+
+  <section id="out" hidden>
+    <div class="who" id="who"></div>
+    <div class="facts" id="facts"></div>
+    <div class="panel"><table id="grid"></table></div>
+    <div class="legend"><span>0</span><span class="bar"></span><span id="max"></span><span>post(s) en moyenne</span></div>
+    <p class="note">Chaque case indique le nombre moyen de posts publiés dans ce créneau. Exemple&nbsp;: total des posts du mardi entre 9&nbsp;h et 10&nbsp;h, divisé par le nombre de fois où ce créneau a eu lieu sur la période. Le jour en cours ne compte que pour les heures déjà écoulées, et les changements d’heure sont pris en compte. Les reposts sont exclus.</p>
+
+    <h2>Évolution jour par jour</h2>
+    <p class="sub">Choisissez un intervalle, puis lancez la lecture pour voir la carte évoluer au fil des jours. La ligne encadrée est le jour affiché&nbsp;; le graphique du bas montre le nombre de posts de chaque jour.</p>
+
+    <fieldset class="rangebox">
+      <legend>Intervalle de l’animation</legend>
+      <div class="controls">
+        <label>Du <input type="date" id="astart"></label>
+        <label>Au <input type="date" id="aend"></label>
+        <button type="button" class="ghost" data-preset="7">7 derniers jours</button>
+        <button type="button" class="ghost" data-preset="30">30 derniers jours</button>
+        <button type="button" class="ghost" data-preset="0">Toute la période</button>
+      </div>
+    </fieldset>
+
+    <div class="controls">
+      <button type="button" id="play" class="play">▶ Lecture</button>
+      <label>Carte affichée
+        <select id="win">
+          <option value="1">Le jour seul</option>
+          <option value="7">Les 7 derniers jours</option>
+          <option value="28" selected>Les 4 dernières semaines</option>
+          <option value="0">Cumul depuis le début de l’intervalle</option>
+        </select>
+      </label>
+      <label>Vitesse
+        <select id="speed">
+          <option value="auto" selected>Auto (≈ 12 s au total)</option>
+          <option value="600">Lente (0,6 s / jour)</option>
+          <option value="250">Normale (0,25 s / jour)</option>
+          <option value="90">Rapide (0,09 s / jour)</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="loop"> En boucle</label>
+    </div>
+
+    <div class="panel">
+      <p class="date" id="adate"></p>
+      <p class="datesub" id="asub"></p>
+      <div class="sliderrow">
+        <input type="range" id="slider" min="0" value="0" aria-label="Jour affiché">
+        <span id="frame"></span>
+      </div>
+      <table id="agrid" style="margin-top:1rem"></table>
+      <div class="timeline" id="timeline" aria-hidden="true"></div>
+      <div class="tl-axis"><span id="tlstart"></span><span id="tlend"></span></div>
+      <p class="tl-help">Cliquez sur une barre pour afficher ce jour, ou faites glisser pour choisir l’intervalle.</p>
+    </div>
+    <div class="legend"><span>0</span><span class="bar"></span><span id="amax"></span><span>post(s) en moyenne par créneau</span><span class="hatch"></span><span>créneau absent de la fenêtre</span></div>
+  </section>
+</main>
+
+<script>
+const API = "https://public.api.bsky.app/xrpc/";
+const TZ = "Europe/Paris";
+const DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+const fmt = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const longDate = new Intl.DateTimeFormat("fr-FR", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const shortDate = new Intl.DateTimeFormat("fr-FR", { timeZone: TZ, day: "numeric", month: "short", year: "numeric" });
+const $ = id => document.getElementById(id);
+const nf = (v, n = 1) => v.toLocaleString("fr-FR", { maximumFractionDigits: n, minimumFractionDigits: n });
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const plural = (n, w) => `${n.toLocaleString("fr-FR")} ${w}${n > 1 ? "s" : ""}`;
+
+// ---------- Dates (calendrier de Paris) ----------
+// Une journée est identifiée par sa clé "AAAA-MM-JJ" à Paris.
+function parts(date) {
+  const p = Object.fromEntries(fmt.formatToParts(date).map(x => [x.type, x.value]));
+  return { key: `${p.year}-${p.month}-${p.day}`, h: +p.hour, mi: +p.minute, y: +p.year, mo: +p.month, d: +p.day };
+}
+const keyUTC = key => { const [y, m, d] = key.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+const keyOf = t => new Date(t).toISOString().slice(0, 10);
+const addDays = (key, n) => keyOf(keyUTC(key) + n * 86400000);
+const wdOf = key => (new Date(keyUTC(key)).getUTCDay() + 6) % 7;      // 0 = lundi
+const dateOf = key => new Date(keyUTC(key) + 12 * 3600000);              // midi UTC = même date à Paris
+const daysBetween = (a, b) => Math.round((keyUTC(b) - keyUTC(a)) / 86400000);
+// Instant exact de minuit, heure de Paris, au début du jour `key`
+function parisMidnight(key) {
+  let t = keyUTC(key);
+  for (let k = 0; k < 3; k++) {
+    const p = parts(new Date(t));
+    t += keyUTC(key) - Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi);
+  }
+  return t;
+}
+const todayKey = () => parts(new Date()).key;
+
+async function get(method, params) {
+  const r = await fetch(API + method + "?" + new URLSearchParams(params));
+  if (!r.ok) {
+    let msg = `Erreur ${r.status}`;
+    try { const j = await r.json(); if (j.message) msg += ` : ${j.message}`; } catch {}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+// ---------- Couleurs ----------
+const STOPS = ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"]
+  .map(h => h.slice(1).match(/../g).map(x => parseInt(x, 16)));
+function mix(t) {
+  if (t <= 0) return "var(--c0)";
+  const x = Math.min(t, 1) * (STOPS.length - 1);
+  const i = Math.min(Math.floor(x), STOPS.length - 2), k = x - i;
+  const a = STOPS[i], b = STOPS[i + 1];
+  return `rgb(${a.map((v, j) => Math.round(v + (b[j] - v) * k)).join(",")})`;
+}
+
+// ---------- Grilles 7 × 24 ----------
+function buildGrid(table, withTotal) {
+  let html = "<thead><tr><th></th>";
+  for (let h = 0; h < 24; h++) html += `<th scope="col">${h}h</th>`;
+  html += withTotal ? "<th>Total</th></tr></thead><tbody>" : "</tr></thead><tbody>";
+  for (let wd = 0; wd < 7; wd++) {
+    html += `<tr><th class="day" scope="row">${DAYS[wd]}</th>`;
+    for (let h = 0; h < 24; h++) html += `<td class="cell"></td>`;
+    html += withTotal ? `<td class="tot"></td></tr>` : "</tr>";
+  }
+  table.innerHTML = html + "</tbody>";
+  return [...table.tBodies[0].rows];
+}
+function paintGrid(rows, st, max, curWd) {
+  rows.forEach((tr, wd) => {
+    tr.classList.toggle("today", wd === curWd);
+    let tot = 0, seen = false;
+    for (let h = 0; h < 24; h++) {
+      const td = tr.cells[h + 1], n = st.slots[wd][h], c = st.raw[wd][h];
+      if (!n) {
+        td.className = "cell na"; td.style.background = ""; td.textContent = "";
+        td.title = `${DAYS[wd]} ${h} h–${h + 1} h : créneau absent de la fenêtre`;
+        continue;
+      }
+      seen = true;
+      const v = c / n, t = Math.sqrt(v / max);
+      tot += v;
+      td.className = "cell";
+      td.style.background = mix(t);
+      td.style.color = t > 0.6 ? "#fff" : "#3b1d00";
+      td.textContent = v === 0 ? "" : nf(v, v < 10 ? 1 : 0);
+      td.title = `${DAYS[wd]} ${h} h–${h + 1} h : ${nf(v, 2)} post(s) en moyenne (${c} posts sur ${plural(n, "occurrence")})`;
+    }
+    const totCell = tr.cells[25];
+    if (totCell) totCell.textContent = seen ? nf(tot) : "–";
+  });
+}
+
+// ---------- État ----------
+let D = null, timer = null, runId = 0;
+
+// Formulaire : période personnalisée
+function initFetchDates() {
+  const t = todayKey();
+  $("fstart").max = $("fend").max = t;
+  if (!$("fend").value) $("fend").value = t;
+  if (!$("fstart").value) $("fstart").value = addDays(t, -89);
+}
+$("days").addEventListener("change", () => {
+  const custom = $("days").value === "custom";
+  $("fstartL").hidden = $("fendL").hidden = !custom;
+  if (custom) initFetchDates();
+});
+
+function fetchRange() {
+  const t = todayKey();
+  if ($("days").value !== "custom") {
+    const n = +$("days").value;
+    return { first: addDays(t, -(n - 1)), last: t };       // exactement n jours, aujourd’hui compris
+  }
+  let a = $("fstart").value, b = $("fend").value;
+  if (!a || !b) throw new Error("Choisissez une date de début et une date de fin");
+  if (a > b) [a, b] = [b, a];
+  if (b > t) b = t;
+  if (a > t) throw new Error("La date de début est dans le futur");
+  if (daysBetween(a, b) > 730) throw new Error("Choisissez une période de deux ans au plus");
+  return { first: a, last: b };
+}
+
+$("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  stop();
+  const run = ++runId;
+  const status = $("status");
+  status.className = "";
+  const handle = $("handle").value.trim().replace(/^@/, "");
+  if (!handle) { status.textContent = "Saisissez l’identifiant d’un compte, par exemple exemple.bsky.social."; return; }
+  $("out").hidden = true; $("go").disabled = true;
+
+  try {
+    const { first, last } = fetchRange();
+    const startT = parisMidnight(first);
+    const endT = Math.min(Date.now(), parisMidnight(addDays(last, 1)));
+
+    status.textContent = "Recherche du compte…";
+    const prof = await get("app.bsky.actor.getProfile", { actor: handle });
+    if (run !== runId) return;
+
+    // Récupération des posts : le fil est trié par date d’indexation, on s’arrête dès qu’on passe avant le début
+    const dates = [];
+    let cursor, done = false, pages = 0;
+    while (!done) {
+      const params = { actor: prof.did, limit: 100, filter: $("replies").value };
+      if (cursor) params.cursor = cursor;
+      const data = await get("app.bsky.feed.getAuthorFeed", params);
+      if (run !== runId) return;
+      for (const item of data.feed) {
+        if (item.reason) continue;                              // reposts
+        if (item.post.author.did !== prof.did) continue;
+        const d = new Date(item.post.record.createdAt);
+        const indexed = new Date(item.post.indexedAt || item.post.record.createdAt);
+        if (indexed < startT && d < startT) { done = true; break; }
+        if (d >= startT && d < endT) dates.push(d);
+      }
+      pages++;
+      status.textContent = `Récupération des posts… ${dates.length} (page ${pages})`;
+      cursor = data.cursor;
+      if (!cursor || !data.feed.length) done = true;
+    }
+
+    // Jours de la période (calendrier de Paris)
+    const nDays = daysBetween(first, last) + 1;
+    const days = [], idx = new Map();
+    for (let i = 0; i < nDays; i++) {
+      const key = addDays(first, i);
+      idx.set(key, i);
+      days.push({ key, wd: wdOf(key), date: dateOf(key) });
+    }
+    // Nombre de fois où chaque créneau horaire a réellement existé (jour en cours partiel, changements d’heure)
+    const slotsPerDay = days.map(() => Array(24).fill(0));
+    for (let t = startT; t < endT; t += 3600000) {
+      const p = parts(new Date(t)), i = idx.get(p.key);
+      if (i !== undefined) slotsPerDay[i][p.h]++;
+    }
+    const perDay = days.map(() => Array(24).fill(0));
+    dates.forEach(d => { const p = parts(d), i = idx.get(p.key); if (i !== undefined) perDay[i][p.h]++; });
+
+    // Sommes cumulées (posts et créneaux) : n’importe quelle fenêtre se calcule en O(168)
+    const pPost = [new Float64Array(168)], pSlot = [new Float64Array(168)];
+    days.forEach((day, i) => {
+      const a = Float64Array.from(pPost[i]), b = Float64Array.from(pSlot[i]);
+      for (let h = 0; h < 24; h++) { a[day.wd * 24 + h] += perDay[i][h]; b[day.wd * 24 + h] += slotsPerDay[i][h]; }
+      pPost.push(a); pSlot.push(b);
+    });
+    D = { days, perDay, pPost, pSlot, idx, dailyTotals: perDay.map(r => r.reduce((a, b) => a + b, 0)) };
+
+    // --- Vue d’ensemble ---
+    const all = stats(0, days.length - 1);
+    const max = Math.max(...all.avg.flat(), 0.0001);
+
+    $("who").innerHTML = "";
+    if (prof.avatar) { const img = new Image(); img.src = prof.avatar; img.alt = ""; $("who").append(img); }
+    const w = document.createElement("div");
+    w.innerHTML = `<strong></strong><span></span>`;
+    w.querySelector("strong").textContent = prof.displayName || prof.handle;
+    w.querySelector("span").textContent = "@" + prof.handle;
+    $("who").append(w);
+
+    const hours = (endT - startT) / 3600000;
+    let peak = { v: -1, wd: 0, h: 0 };
+    all.avg.forEach((row, wd) => row.forEach((v, h) => { if (v > peak.v) peak = { v, wd, h }; }));
+    const dayTotals = all.avg.map(r => r.reduce((a, b) => a + b, 0));
+    const bestDay = dayTotals.indexOf(Math.max(...dayTotals));
+    $("facts").innerHTML = `
+      <div><b>${dates.length.toLocaleString("fr-FR")}</b>posts du ${shortDate.format(days[0].date)} au ${shortDate.format(days[days.length - 1].date)} (${plural(days.length, "jour")})</div>
+      <div><b>${nf(dates.length / (hours / 24))}</b>posts par jour en moyenne</div>
+      <div><b>${DAYS[bestDay]}</b>jour le plus actif (${nf(dayTotals[bestDay])} posts)</div>
+      <div><b>${DAYS[peak.wd].toLowerCase()} ${peak.h}&nbsp;h</b>créneau le plus actif (${nf(peak.v, 2)} posts)</div>`;
+    paintGrid(buildGrid($("grid"), true), all, max, -1);
+    $("max").textContent = nf(max, 2);
+
+    // --- Animation ---
+    D.rows = buildGrid($("agrid"), false);
+    const maxDaily = Math.max(...D.dailyTotals, 1);
+    $("timeline").innerHTML = D.dailyTotals.map(v =>
+      `<div style="height:${Math.max(2, v / maxDaily * 100)}%"></div>`).join("");
+    D.bars = [...$("timeline").children];
+    $("timeline").style.gap = days.length > 200 ? "0" : "1px";
+    $("tlstart").textContent = shortDate.format(days[0].date);
+    $("tlend").textContent = shortDate.format(days[days.length - 1].date);
+    for (const id of ["astart", "aend"]) { $(id).min = days[0].key; $(id).max = days[days.length - 1].key; }
+    D.cur = days.length - 1;
+    setRange(0, days.length - 1);
+
+    status.textContent = dates.length ? "" : "Aucun post sur cette période.";
+    $("out").hidden = !dates.length;
+  } catch (err) {
+    if (run !== runId) return;
+    status.className = "err";
+    status.textContent = /Failed to fetch|NetworkError|Load failed/i.test(err.message)
+      ? "Impossible de joindre Bluesky. Ouvrez ce fichier dans votre navigateur (double-clic), avec une connexion internet."
+      : /^Erreur \d/.test(err.message) ? `${err.message}. Vérifiez l’identifiant du compte.` : `${err.message}.`;
+  } finally {
+    if (run === runId) $("go").disabled = false;
+  }
+});
+
+// Statistiques sur les jours s..i inclus : moyenne = posts ÷ nombre d’occurrences réelles du créneau
+function stats(s, i) {
+  const a = D.pPost[i + 1], b = D.pPost[s], sa = D.pSlot[i + 1], sb = D.pSlot[s];
+  const avg = [], raw = [], slots = [];
+  for (let wd = 0; wd < 7; wd++) {
+    avg.push([]); raw.push([]); slots.push([]);
+    for (let h = 0; h < 24; h++) {
+      const k = wd * 24 + h, c = a[k] - b[k], n = sa[k] - sb[k];
+      raw[wd].push(c); slots[wd].push(n); avg[wd].push(n ? c / n : 0);
+    }
+  }
+  return { avg, raw, slots };
+}
+
+// Fenêtre de la carte pour le jour i. Les fenêtres glissantes peuvent puiser avant le début de
+// l’intervalle (les données existent) ; le cumul part du début de l’intervalle.
+function windowFor(i) {
+  const win = +$("win").value;
+  const from = win ? Math.max(0, i - win + 1) : D.a;
+  const len = i - from + 1, want = win || 7;
+  return { from, len, win, complete: win ? len >= win : len >= 7, want };
+}
+
+// Échelle fixe sur l’intervalle, calculée sur les fenêtres complètes seulement :
+// une fenêtre de 2 jours donne des moyennes très bruitées qui écraseraient toutes les teintes.
+function computeAnimMax() {
+  let m = 0, mAny = 0;
+  for (let i = D.a; i <= D.b; i++) {
+    const w = windowFor(i), { avg } = stats(w.from, i);
+    let local = 0;
+    for (const row of avg) for (const v of row) if (v > local) local = v;
+    if (w.complete && local > m) m = local;
+    if (local > mAny) mAny = local;
+  }
+  D.animMax = Math.max(m || mAny, 0.0001);
+  $("amax").textContent = nf(D.animMax, 2);
+}
+
+function setRange(a, b) {
+  a = clamp(a, 0, D.days.length - 1); b = clamp(b, 0, D.days.length - 1);
+  if (a > b) [a, b] = [b, a];
+  D.a = a; D.b = b;
+  $("astart").value = D.days[a].key; $("aend").value = D.days[b].key;
+  $("slider").min = a; $("slider").max = b;
+  computeAnimMax();
+  show(clamp(D.cur ?? b, a, b));
+}
+
+function show(i) {
+  const { from, len, win, complete, want } = windowFor(i);
+  const st = stats(from, i);
+  const day = D.days[i];
+  paintGrid(D.rows, st, D.animMax, day.wd);
+  $("slider").value = i;
+  $("frame").textContent = `jour ${i - D.a + 1} / ${D.b - D.a + 1}`;
+  const label = longDate.format(day.date);
+  $("adate").textContent = label.charAt(0).toUpperCase() + label.slice(1);
+  const n = D.dailyTotals[i];
+  let range;
+  if (win === 1) range = "carte de ce seul jour";
+  else if (win) range = `carte calculée du ${shortDate.format(D.days[from].date)} au ${shortDate.format(day.date)} (${plural(len, "jour")})`;
+  else range = `cumul depuis le ${shortDate.format(D.days[D.a].date)} (${plural(len, "jour")})`;
+  $("asub").innerHTML = "";
+  $("asub").append(`${plural(n, "post")} ce jour-là · ${range}`);
+  if (!complete && win !== 1) {
+    const s = document.createElement("span");
+    s.className = "warn";
+    s.textContent = win ? ` · fenêtre incomplète (${len} jours sur ${want}, début des données)`
+                        : ` · moins d’une semaine cumulée, moyennes encore instables`;
+    $("asub").append(s);
+  }
+  D.bars.forEach((bar, k) => {
+    bar.className = k === i ? "cur" : (k >= from && k < i ? "win" : "") + (k < D.a || k > D.b ? " out" : "");
+  });
+  D.cur = i;
+}
+
+// ---------- Lecture ----------
+function frameDelay() {
+  const v = $("speed").value;
+  return v === "auto" ? clamp(12000 / (D.b - D.a + 1), 40, 700) : +v;
+}
+function tick() {
+  if (D.cur >= D.b) {
+    if (!$("loop").checked) return stop();
+    show(D.a);
+  } else show(D.cur + 1);
+  timer = setTimeout(tick, frameDelay());
+}
+function stop() { clearTimeout(timer); timer = null; $("play").textContent = "▶ Lecture"; }
+function play() {
+  if (D.cur >= D.b || D.cur < D.a) show(D.a);
+  $("play").textContent = "❚❚ Pause";
+  timer = setTimeout(tick, frameDelay());
+}
+$("play").addEventListener("click", () => { if (!D) return; timer ? stop() : play(); });
+$("slider").addEventListener("input", e => { stop(); show(+e.target.value); });
+$("speed").addEventListener("change", () => { if (timer) { stop(); play(); } });
+$("win").addEventListener("change", () => { if (!D) return; computeAnimMax(); show(D.cur); });
+
+// ---------- Intervalle : calendriers, raccourcis, glisser sur la frise ----------
+function onDateChange() {
+  stop();
+  const a = D.idx.get($("astart").value), b = D.idx.get($("aend").value);
+  if (a === undefined || b === undefined) { setRange(D.a, D.b); return; }   // date hors période : on rétablit
+  setRange(a, b);
+  show(D.a);
+}
+$("astart").addEventListener("change", onDateChange);
+$("aend").addEventListener("change", onDateChange);
+document.querySelectorAll("[data-preset]").forEach(btn => btn.addEventListener("click", () => {
+  if (!D) return;
+  stop();
+  const n = +btn.dataset.preset, last = D.days.length - 1;
+  setRange(n ? last - n + 1 : 0, last);
+  show(D.a);
+}));
+
+const tl = $("timeline");
+let drag = null;
+function barAt(x) {
+  const r = tl.getBoundingClientRect();
+  return clamp(Math.floor((x - r.left) / r.width * D.days.length), 0, D.days.length - 1);
+}
+tl.addEventListener("pointerdown", e => {
+  if (!D) return;
+  stop();
+  const i = barAt(e.clientX);
+  drag = { s: i, e: i };
+  tl.setPointerCapture(e.pointerId);
+});
+tl.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const j = barAt(e.clientX);
+  if (j === drag.e) return;
+  drag.e = j;
+  const a = Math.min(drag.s, j), b = Math.max(drag.s, j);
+  D.bars.forEach((bar, k) => { bar.className = k >= a && k <= b ? "sel" : "out"; });
+});
+tl.addEventListener("pointerup", () => {
+  if (!drag) return;
+  const { s, e } = drag; drag = null;
+  if (s !== e) { D.cur = Math.min(s, e); setRange(s, e); return; }
+  if (s < D.a || s > D.b) { D.cur = s; setRange(0, D.days.length - 1); }   // clic hors intervalle : on l’élargit
+  else show(s);
+});
+tl.addEventListener("pointercancel", () => { drag = null; show(D.cur); });
+
+document.addEventListener("keydown", e => {
+  if (!D || $("out").hidden || ["INPUT", "SELECT", "BUTTON"].includes(e.target.tagName)) return;
+  if (e.key === "ArrowRight") { stop(); show(Math.min(D.cur + 1, D.b)); }
+  if (e.key === "ArrowLeft") { stop(); show(Math.max(D.cur - 1, D.a)); }
+  if (e.key === " ") { e.preventDefault(); timer ? stop() : play(); }
+});
+
+if ($("handle").value.trim()) $("f").requestSubmit();
+</script>
+</body>
+</html>
